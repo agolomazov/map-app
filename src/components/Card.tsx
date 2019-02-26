@@ -5,11 +5,13 @@ import { Property } from '../types';
 interface CardProps {
   property: Property;
   isActive?: boolean;
+  setActive: () => void;
 }
 
 export const Card = (props: CardProps) => {
   const {
     isActive,
+    setActive,
     property: {
       _id,
       picture,
@@ -31,6 +33,7 @@ export const Card = (props: CardProps) => {
         'col-lg-4': true,
         'is-active': isActive
       })}
+      onClick={setActive}
     >
       <img src={picture} alt={city} />
       <p className="price">$937,180</p>

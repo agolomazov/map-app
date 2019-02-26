@@ -13,18 +13,29 @@ class App extends React.Component<AppProps, AppState> {
     activeProperty: data.properties[0]
   };
 
-  handleSetActiveProperty = (property: Property) => {
-    this.setState({
-      activeProperty: property
-    });
+  handleSetActiveProperty = (property: Property, scroll: Boolean = true) => {
+    this.setState(
+      (prevState: AppState) => {
+        if (prevState.activeProperty._id === property._id) {
+          return null;
+        }
 
-    jump(`#card-${property.index}`, {
-      duration: 1000,
-      offset: 0,
-      callback: undefined,
-      easing: easeInOutCubic,
-      a11y: false
-    });
+        return {
+          activeProperty: property
+        };
+      },
+      () => {
+        if (scroll) {
+          jump(`#card-${property.index}`, {
+            duration: 1000,
+            offset: 0,
+            callback: undefined,
+            easing: easeInOutCubic,
+            a11y: false
+          });
+        }
+      }
+    );
   };
 
   render() {
@@ -118,6 +129,9 @@ class App extends React.Component<AppProps, AppState> {
                   property={property}
                   key={property._id}
                   isActive={property._id === activeProperty._id}
+                  setActive={() =>
+                    this.handleSetActiveProperty(property, false)
+                  }
                 />
               ))}
             </div>

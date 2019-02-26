@@ -8,16 +8,41 @@ interface GMapProps {
 }
 
 interface GMapState {
-  markers: Map<string, google.maps.InfoWindow>;
+  infvW: Map<string, google.maps.InfoWindow>;
+  activeTooltype: google.maps.InfoWindow;
+  markers: Map<string, google.maps.Marker>;
+  map?: google.maps.Map;
 }
 
 export class GoogleMap extends Component<GMapProps, GMapState> {
   state = {
+    infvW: new Map(),
+    activeTooltype: new google.maps.InfoWindow(),
     markers: new Map()
   };
 
   mapRef: HTMLDivElement | null = null;
-  marker: google.maps.Marker | null = null;
+
+  static getDerivedStateFromProps(props: GMapProps, state: GMapState) {
+    const { activeProperty } = props;
+    let { activeTooltype, map, infvW, markers } = state;
+    if (activeProperty) {
+      activeTooltype.close();
+      const newActiveProperty = infvW.get(`${activeProperty._id}`);
+      if (newActiveProperty) {
+        const marker = markers.get(`${activeProperty._id}`);
+        newActiveProperty.open(map, marker);
+
+        return {
+          ...state,
+          activeTooltype: newActiveProperty
+        };
+      }
+      return null;
+    }
+
+    return null;
+  }
 
   componentDidMount() {
     const { longitude, latitude } = this.props.activeProperty;
@@ -27,16 +52,17 @@ export class GoogleMap extends Component<GMapProps, GMapState> {
       mapTypeControl: false,
       zoom: 15
     });
+    this.setState({
+      map
+    });
     this.createMarkers(properties, map);
   }
 
   createMarkers = (properties: Property[], map: google.maps.Map) => {
-    const { markers } = this.state;
-    const { activeProperty } = this.props;
-    const activePropertyIndex: number = activeProperty.index;
+    let { infvW, activeTooltype, markers } = this.state;
     properties.map(property => {
       const { longitude, latitude, index } = property;
-      this.marker = new google.maps.Marker({
+      const marker = new google.maps.Marker({
         position: { lat: latitude, lng: longitude },
         map,
         label: {
@@ -45,19 +71,22 @@ export class GoogleMap extends Component<GMapProps, GMapState> {
         },
         icon: {
           url:
-            'http://www.clker.com/cliparts/k/D/K/I/2/T/map-pin-blue.svg.thumb.png',
-          size: new google.maps.Size(60, 90),
-          origin: new google.maps.Point(0, -15)
+            'http://icons.iconarchive.com/icons/paomedia/small-n-flat/48/map-marker-icon.png'
         }
       });
+
+      markers.set(`${property._id}`, marker);
 
       const iw: google.maps.InfoWindow = new google.maps.InfoWindow({
         content: `<h1>${property.address}</h1>`
       });
 
-      markers.set(property._id, iw);
-      this.marker.addListener('click', () => {
+      infvW.set(property._id, iw);
+      marker.addListener('click', () => {
         this.props.setActive(property);
+        activeTooltype.close();
+        activeTooltype = infvW.get(property._id);
+        activeTooltype.open(map, marker);
       });
     });
   };
