@@ -1,19 +1,172 @@
-import React from 'react';
+import React, { Fragment, MouseEvent, FormEvent } from 'react';
 import jump from 'jump.js';
 import { easeInOutCubic } from './utils/Easing';
 import image from './icons/house-location-pin.svg';
-import { AppProps, AppState, Property } from './types';
+import {
+  AppProps,
+  AppState,
+  Property,
+  BedroomsType,
+  BathroomsType,
+  CarsType,
+  PriceFromType,
+  PriceToType,
+  FilterSortType,
+  FilterProps
+} from './types';
 import data from './data/Data';
 import { Card } from './components/Card';
 import { GoogleMap } from './components/GoogleMap';
+import { Header } from './components/Header';
+
+const initialFilter: FilterProps = {
+  filterBedrooms: BedroomsType.Any,
+  filterBathrooms: BathroomsType.Any,
+  filterCars: CarsType.Any,
+  priceFrom: PriceFromType.Any,
+  priceTo: PriceToType.Any,
+  filterSort: FilterSortType.Any
+};
 
 class App extends React.Component<AppProps, AppState> {
   state = {
     properties: data.properties,
-    activeProperty: data.properties[0]
+    activeProperty: data.properties[0],
+    isVisibleFilter: false,
+    filter: { ...initialFilter }
   };
 
-  handleSetActiveProperty = (property: Property, scroll: Boolean = true) => {
+  scrollToActive = (property: Property, scroll: Boolean = true): void => {
+    if (scroll) {
+      jump(`#card-${property.index}`, {
+        duration: 1000,
+        offset: -140,
+        callback: undefined,
+        easing: easeInOutCubic,
+        a11y: false
+      });
+    }
+  };
+
+  filterProperty = (filter: FilterProps): Property[] => {
+    const {
+      filterBedrooms,
+      filterBathrooms,
+      filterCars,
+      priceFrom,
+      priceTo,
+      filterSort
+    } = filter;
+
+    // Фильтрация
+    let newProperties: Property[] = data.properties.filter(property => {
+      let flag = true;
+      if (filterBedrooms !== BedroomsType.Any) {
+        const bedrooms = parseInt(filterBedrooms, 10);
+        if (property.bedrooms !== bedrooms) {
+          flag = false;
+        }
+      }
+
+      if (filterBathrooms !== BathroomsType.Any) {
+        const bathrooms = parseInt(filterBathrooms, 10);
+        if (property.bathrooms !== bathrooms) {
+          flag = false;
+        }
+      }
+
+      if (filterCars !== CarsType.Any) {
+        const cars = parseInt(filterCars, 10);
+        if (property.carSpaces !== cars) {
+          flag = false;
+        }
+      }
+
+      if (priceFrom !== PriceFromType.Any) {
+        const priceFromParse = parseInt(priceFrom, 10);
+        if (property.price < priceFromParse) {
+          flag = false;
+        }
+      }
+
+      if (priceTo !== PriceToType.Any) {
+        const priceToParse = parseInt(priceTo, 10);
+        if (property.price > priceToParse) {
+          flag = false;
+        }
+      }
+
+      return flag;
+    });
+
+    // Сортировка
+    if (filterSort !== FilterSortType.Any) {
+      const sortToHigh: (a: Property, b: Property) => number = (a, b) =>
+        a.price - b.price;
+      const sortToLow: (a: Property, b: Property) => number = (a, b) =>
+        b.price - a.price;
+      if (filterSort === FilterSortType.LowToHigh) {
+        newProperties = newProperties.sort(sortToHigh);
+      } else if (filterSort === FilterSortType.HighToLow) {
+        newProperties = newProperties.sort(sortToLow);
+      }
+    }
+
+    return newProperties;
+  };
+
+  handleToggleFilter = (
+    event: MouseEvent<HTMLButtonElement | HTMLAnchorElement>
+  ): void => {
+    event.preventDefault();
+    this.setState(prevState => ({
+      isVisibleFilter: !prevState.isVisibleFilter
+    }));
+  };
+
+  handleChangeFilter = (event: FormEvent<HTMLSelectElement>) => {
+    const { name, value } = event.currentTarget;
+    this.setState((prevState: AppState) => {
+      const filter: FilterProps = prevState.filter;
+      if (filter[name] !== value) {
+        const newFilter = {
+          ...prevState.filter,
+          [name]: value
+        };
+        const newProperty = this.filterProperty(newFilter);
+
+        return {
+          ...prevState,
+          properties: newProperty,
+          activeProperty: newProperty[0],
+          filter: {
+            ...prevState.filter,
+            [name]: value
+          }
+        };
+      }
+      return null;
+    });
+  };
+
+  handleClearFilter = (event: MouseEvent<HTMLButtonElement>): void => {
+    event.preventDefault();
+    this.setState(
+      {
+        filter: { ...initialFilter },
+        properties: data.properties,
+        activeProperty: data.properties[0]
+      },
+      () => {
+        this.scrollToActive(data.properties[0], true);
+      }
+    );
+  };
+
+  handleSetActiveProperty = (
+    property: Property,
+    scroll: Boolean = true
+  ): void => {
     this.setState(
       (prevState: AppState) => {
         if (prevState.activeProperty._id === property._id) {
@@ -25,103 +178,25 @@ class App extends React.Component<AppProps, AppState> {
         };
       },
       () => {
-        if (scroll) {
-          jump(`#card-${property.index}`, {
-            duration: 1000,
-            offset: 0,
-            callback: undefined,
-            easing: easeInOutCubic,
-            a11y: false
-          });
-        }
+        this.scrollToActive(property, scroll);
       }
     );
   };
 
   render() {
-    const { properties, activeProperty } = this.state;
+    const { properties, activeProperty, isVisibleFilter, filter } = this.state;
 
     return (
-      <div>
-        {/* listings - Start */}
+      <Fragment>
         <div className="listings">
-          {/* Header - Start - add .filter-is-visible to show filter*/}
-          <header className="">
-            {/* Filter - Start */}
-            <form className="filter">
-              <div className="filterBox">
-                <label htmlFor="filterBedrooms">Bedrooms</label>
-                <select id="filterBedrooms" name="filterBedrooms">
-                  <option value="any">Any</option>
-                  <option value="1">1</option>
-                  <option value="2">2</option>
-                  <option value="3">3</option>
-                </select>
-              </div>
-              <div className="filterBox">
-                <label htmlFor="filterBathrooms">Bathrooms</label>
-                <select id="filterBathrooms" name="filterBathrooms">
-                  <option value="any">Any</option>
-                  <option value="1">1</option>
-                  <option value="2">2</option>
-                </select>
-              </div>
-              <div className="filterBox">
-                <label htmlFor="filterCars">Car Spaces</label>
-                <select id="filterCars" name="filterCars">
-                  <option value="any">Any</option>
-                  <option value="0">0</option>
-                  <option value="1">1</option>
-                  <option value="2">2</option>
-                </select>
-              </div>
-              <div className="filterBox filterFrom">
-                <label htmlFor="priceFrom">Min Price</label>
-                <select id="priceFrom" name="priceFrom">
-                  <option value="0">Any</option>
-                  <option value="500000">{500000}</option>
-                  <option value="600000">{600000}</option>
-                  <option value="700000">{700000}</option>
-                  <option value="800000">{800000}</option>
-                  <option value="900000">{900000}</option>
-                </select>
-              </div>
-              <div className="filterBox">
-                <label htmlFor="priceTo">Max Price</label>
-                <select id="priceTo" name="priceTo">
-                  <option value="1000001">Any</option>
-                  <option value="600000">{600000}</option>
-                  <option value="700000">{700000}</option>
-                  <option value="800000">{800000}</option>
-                  <option value="900000">{900000}</option>
-                  <option value="1000000">{1000000}</option>
-                </select>
-              </div>
-              <div className="filterBox">
-                <label htmlFor="filterSort">Order by</label>
-                <select id="filterSort" name="filterSort">
-                  <option value="any">Default</option>
-                  <option value="0">Price: - Low to High</option>
-                  <option value="1">Price: - High to Low</option>
-                </select>
-              </div>
-              <div className="filterBox">
-                <label>&nbsp;</label>
-                <button className="btn-clear">Clear</button>
-              </div>
-              <button className="btn-filter">
-                <strong>X</strong>
-                <span>Close</span>
-              </button>
-            </form>
-            {/* Filter - End */}
-
-            <img src={image} />
-            <h1>Property Listings</h1>
-            <button className="btn-filter">Filter</button>
-          </header>
-          {/* Header - End */}
-
+          <Header
+            image={image}
+            isVisibleFilter={isVisibleFilter}
+            toggleFilter={this.handleToggleFilter}
+            handleChangeFilter={this.handleChangeFilter}
+            handleClearFilter={this.handleClearFilter}
+            filter={filter}
+          />
           <div className="cards container">
             <div className="cards-list row ">
               {properties.map(property => (
@@ -137,14 +212,12 @@ class App extends React.Component<AppProps, AppState> {
             </div>
           </div>
         </div>
-        {/* listings - End */}
-
         <GoogleMap
           properties={properties}
           activeProperty={activeProperty}
           setActive={this.handleSetActiveProperty}
         />
-      </div>
+      </Fragment>
     );
   }
 }

@@ -9,9 +9,9 @@ interface GMapProps {
 
 interface GMapState {
   infvW: Map<string, google.maps.InfoWindow>;
-  activeTooltype: google.maps.InfoWindow;
-  markers: Map<string, google.maps.Marker>;
-  map?: google.maps.Map;
+  activeTooltype: google.maps.InfoWindow; // тултип
+  markers: Map<string, google.maps.Marker>; // маркеры
+  map?: google.maps.Map; // карта
 }
 
 export class GoogleMap extends Component<GMapProps, GMapState> {
@@ -24,24 +24,61 @@ export class GoogleMap extends Component<GMapProps, GMapState> {
   mapRef: HTMLDivElement | null = null;
 
   static getDerivedStateFromProps(props: GMapProps, state: GMapState) {
-    const { activeProperty } = props;
+    const { activeProperty, properties } = props;
     let { activeTooltype, map, infvW, markers } = state;
+    let newMarkers = new Map();
+    newMarkers = new Map(markers);
+    // Если есть хоть один активный элемент
     if (activeProperty) {
-      activeTooltype.close();
+      Array.from(newMarkers.keys()).map(markerKey => {
+        // Если property с таким ID есть
+        // то оставляем такой маркер на карте
+        const markerByKey = properties.find(prop => prop._id === markerKey);
+        if (markerByKey) {
+          const marker = newMarkers.get(markerKey);
+          marker.setMap(map);
+        } // Если нет - убираем его с карты
+        else {
+          const marker = newMarkers.get(markerKey);
+          marker.setMap(null);
+        }
+        // Закрываем тултип
+        activeTooltype.close();
+      });
+
       const newActiveProperty = infvW.get(`${activeProperty._id}`);
+
       if (newActiveProperty) {
         const marker = markers.get(`${activeProperty._id}`);
         newActiveProperty.open(map, marker);
 
         return {
           ...state,
-          activeTooltype: newActiveProperty
+          activeTooltype: newActiveProperty,
+          markers: newMarkers
         };
       }
-      return null;
+      return {
+        ...state,
+        markers: newMarkers
+      };
     }
-
-    return null;
+    // Если активных элементов нет (если после фильтрации ничего нет)
+    else {
+      // Скрываем все маркеры
+      Array.from(newMarkers.keys()).map(markerKey => {
+        const marker = newMarkers.get(markerKey);
+        if (marker) {
+          marker.setMap(null);
+        }
+      });
+      // Закрываем тултип
+      activeTooltype.close();
+      return {
+        ...state,
+        markers: newMarkers
+      };
+    }
   }
 
   componentDidMount() {
